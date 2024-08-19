@@ -3,9 +3,13 @@ from flask import Flask, render_template, request, redirect, url_for, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from models import db  # Import the db instance from models.py
+from dotenv import load_dotenv
 import numpy as np
 import secrets
 import time
+
+# Load environment variables from .env file in development
+load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', '4I6YU5ERTUC4')
@@ -47,7 +51,6 @@ class Participant(db.Model):
 
 # Create the database
 with app.app_context():
-    db.create_all()
 
 @app.route('/')
 def welcome():
@@ -244,10 +247,27 @@ def result():
         return redirect(url_for('continue_game'))
 
     # Query the database for session end balances
-    session_1_participant_balance = db.session.query(Participant.participant_balance).filter_by(participant_id=session['participant_id'], session_num=1).order_by(Participant.round_num.desc()).first()[0]
-    session_1_bot_balance = db.session.query(Participant.bot_balance).filter_by(participant_id=session['participant_id'], session_num=1).order_by(Participant.round_num.desc()).first()[0]
-    session_2_participant_balance = db.session.query(Participant.participant_balance).filter_by(participant_id=session['participant_id'], session_num=2).order_by(Participant.round_num.desc()).first()[0]
-    session_2_bot_balance = db.session.query(Participant.bot_balance).filter_by(participant_id=session['participant_id'], session_num=2).order_by(Participant.round_num.desc()).first()[0]
+    session_1_participant_balance = db.session.query(Participant.participant_balance).filter_by(
+        participant_id=session['participant_id'], session_num=1
+    ).order_by(Participant.round_num.desc()).first()
+
+    session_1_bot_balance = db.session.query(Participant.bot_balance).filter_by(
+        participant_id=session['participant_id'], session_num=1
+    ).order_by(Participant.round_num.desc()).first()
+
+    session_2_participant_balance = db.session.query(Participant.participant_balance).filter_by(
+        participant_id=session['participant_id'], session_num=2
+    ).order_by(Participant.round_num.desc()).first()
+
+    session_2_bot_balance = db.session.query(Participant.bot_balance).filter_by(
+        participant_id=session['participant_id'], session_num=2
+    ).order_by(Participant.round_num.desc()).first()
+
+    # Safely extract the balances or set them to a default value if None
+    session_1_participant_balance = session_1_participant_balance[0] if session_1_participant_balance else initial_tokens
+    session_1_bot_balance = session_1_bot_balance[0] if session_1_bot_balance else initial_tokens
+    session_2_participant_balance = session_2_participant_balance[0] if session_2_participant_balance else initial_tokens
+    session_2_bot_balance = session_2_bot_balance[0] if session_2_bot_balance else initial_tokens
 
     return render_template(
         'result.html',
