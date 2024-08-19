@@ -11,6 +11,7 @@ if os.environ.get('FLASK_ENV') == 'development':
 import numpy as np
 import secrets
 import time
+from datetime import datetime 
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', '4I6YU5ERTUC4')
@@ -44,11 +45,17 @@ class Participant(db.Model):
     bot_balance = db.Column(db.Integer, nullable=False)
     net_gain = db.Column(db.Integer, nullable=False)
     time_exceeded = db.Column(db.Integer, nullable=False)
+    start_timestamp = db.Column(db.DateTime, nullable=True)  # New column for start timestamp
+    end_timestamp = db.Column(db.DateTime, nullable=True)  # New column for end timestamp
 
     __table_args__ = (db.UniqueConstraint('participant_id', 'session_num', 'round_num', name='_participant_session_round_uc'),)
 
     def __repr__(self):
         return f'<Participant {self.participant_id} - Session {self.session_num}, Round {self.round_num}>'
+
+# Create the database
+#with app.app_context():
+#    db.create_all()
 
 @app.route('/')
 def welcome():
@@ -82,6 +89,7 @@ def start():
     session['intervention'] = False
     session['session_started'] = True
     session['start_time'] = time.time()  # Record the start time of the first round
+    session['start_timestamp'] = datetime.utcnow() # Record the start timestamp
 
     return redirect(url_for('game'))
 
@@ -195,7 +203,7 @@ def outcome():
 def message():
     session_num = session['session_num']
     next_session_num = session_num + 1
-    message = f"You can now move on to session {next_session_num}."
+    message = f"You can now move on to session {next_session_num}. Click the button if you're ready."
     return render_template('message.html', message=message)
 
 @app.route('/average_message')
@@ -211,7 +219,7 @@ def average_message():
         message = f"You have contributed on average <span class='highlight'>{-divergence}</span> less than the previous participants."
     else:
         message = f"You have contributed on average <span class='highlight'>{average_contribution}</span>. Exactly the same as others typically contribute in this game."
-    additional_message = "Another player has also received information regarding their deviation from the average contribution."
+    additional_message = "ChatGPT (AI) has also received information regarding their (non-)deviation from the average contribution."
     return render_template('average_message.html', message=message, additional_message=additional_message, next_session_num=next_session_num)
 
 @app.route('/continue_game')
