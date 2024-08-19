@@ -1,18 +1,22 @@
 import os
 from flask import Flask, render_template, request, redirect, url_for, session
 from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
+from models import db  # Import the db instance from models.py
 import numpy as np
 import secrets
 import time
-
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', '4I6YU5ERTUC4')
 
 # Database setup
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///public_good_game.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///default.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
+
+# Initialize the db instance and migrate
+db.init_app(app)
+migrate = Migrate(app, db)  # Initialize Flask-Migrate with the app and db
 
 # Game settings
 initial_tokens = 20
