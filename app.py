@@ -49,9 +49,6 @@ class Participant(db.Model):
     def __repr__(self):
         return f'<Participant {self.participant_id} - Session {self.session_num}, Round {self.round_num}>'
 
-# Create the database
-with app.app_context():
-
 @app.route('/')
 def welcome():
     # Assign a random participant ID if it does not exist
@@ -264,10 +261,10 @@ def result():
     ).order_by(Participant.round_num.desc()).first()
 
     # Safely extract the balances or set them to a default value if None
-    session_1_participant_balance = session_1_participant_balance[0] if session_1_participant_balance else initial_tokens
-    session_1_bot_balance = session_1_bot_balance[0] if session_1_bot_balance else initial_tokens
-    session_2_participant_balance = session_2_participant_balance[0] if session_2_participant_balance else initial_tokens
-    session_2_bot_balance = session_2_bot_balance[0] if session_2_bot_balance else initial_tokens
+    session_1_participant_balance = session_1_participant_balance.participant_balance if session_1_participant_balance else initial_tokens
+    session_1_bot_balance = session_1_bot_balance.bot_balance if session_1_bot_balance else initial_tokens
+    session_2_participant_balance = session_2_participant_balance.participant_balance if session_2_participant_balance else initial_tokens
+    session_2_bot_balance = session_2_bot_balance.bot_balance if session_2_bot_balance else initial_tokens
 
     return render_template(
         'result.html',
