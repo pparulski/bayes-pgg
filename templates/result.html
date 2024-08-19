@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Public Good Game Results</title>
+    <style>
+        body { text-align: center; margin: 50px auto; font-size: 24px; padding: 20px; max-width: 100%; }
+        table {
+            width: 60%;
+            margin: 20px auto;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 15px;
+            text-align: center;
+            border-bottom: 1px solid #ddd;
+            font-size: 24px;
+        }
+        th {
+            font-weight: bold;
+            color: #007BFF;
+        }
+        .highlight {
+            font-weight: bold;
+            color: #007BFF;
+        }
+
+        /* Mobile and tablet responsiveness */
+        @media only screen and (max-width: 768px) {
+            body { font-size: 35px; margin-top: 40px; padding: 30px; }
+            table { width: 90%; }
+            th, td { font-size: 28px; padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <h1>Public Good Game Results</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Session</th>
+                <th>Player End Balance</th>
+                <th>Bot End Balance</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Session 1</td>
+                <td>{{ session_1_participant_balance }}</td>
+                <td>{{ session_1_bot_balance }}</td>
+            </tr>
+            <tr>
+                <td>Session 2</td>
+                <td>{{ session_2_participant_balance }}</td>
+                <td>{{ session_2_bot_balance }}</td>
+            </tr>
+        </tbody>
+    </table>
+    {% if next_session %}
+        <form action="{{ url_for('continue_game') }}" method="get">
+            <button type="submit">Start Session {{ next_session }}</button>
+        </form>
+    {% else %}
+        <p>The game is finished. Thank you for participating!</p>
+    {% endif %}
+</body>
+</html>

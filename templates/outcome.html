@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Round Outcome</title>
+    <meta http-equiv="refresh" content="4;url={{ url_for('game') }}">
+    <script>
+        (function() {
+            window.history.pushState(null, null, window.location.href);
+            window.onpopstate = function() {
+                window.history.go(1);
+            };
+        })();
+    </script>
+    <style>
+        body { text-align: center; margin: 50px auto; font-size: 24px; padding: 20px; max-width: 100%; }
+        .positive { color: green; font-size: 28px; }
+        .negative { color: red; font-size: 28px; }
+        .neutral { color: black; font-size: 28px; }
+
+        /* Mobile and tablet responsiveness */
+        @media only screen and (max-width: 768px) {
+            body { font-size: 35px; margin-top: 40px; padding: 30px; }
+            .positive, .negative, .neutral { font-size: 35px; }
+        }
+    </style>
+</head>
+<body>
+    <h1>Round Outcome</h1>
+    <p>Round Balance: 
+        {% if net_gain > 0 %}
+            <span class="positive">{{ net_gain }}</span>
+        {% elif net_gain < 0 %}
+            <span class="negative">{{ net_gain }}</span>
+        {% else %}
+            <span class="neutral">0</span>
+        {% endif %}
+    </p>
+    <p>Total Balance: <span class="highlight">{{ total_balance }}</span></p>
+</body>
+</html>

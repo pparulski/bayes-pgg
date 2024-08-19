@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Waiting</title>
+    <meta http-equiv="refresh" content="{{ wait_time }};url={{ url_for('outcome') }}">
+    <script>
+        (function() {
+            window.history.pushState(null, null, window.location.href);
+            window.onpopstate = function() {
+                window.history.go(1);
+            };
+        })();
+    </script>
+    <style>
+        body { display: flex; justify-content: center; align-items: center; height: 100vh; font-size: 24px; flex-direction: column; padding: 20px; }
+        .cross { font-size: 60px; }
+        .thinking { margin-top: 30px; text-align: center; font-size: 28px; }
+        .dots { display: inline-block; }
+        .dots span {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            margin: 0 4px;
+            border-radius: 50%;
+            background: black;
+            animation: blink 1.5s infinite both;
+        }
+        .dots span:nth-child(2) { animation-delay: 0.3s; }
+        .dots span:nth-child(3) { animation-delay: 0.6s; }
+        @keyframes blink {
+            0%, 80%, 100% { opacity: 0; }
+            40% { opacity: 1; }
+        }
+
+        /* Mobile and tablet responsiveness */
+        @media only screen and (max-width: 768px) {
+            body { font-size: 35px; }
+            .cross { font-size: 75px; }
+            .thinking { font-size: 37.5px; }
+            .dots span { width: 17px; height: 17px; margin: 0 6px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="cross">+</div>
+    <div class="thinking">
+        AI is analyzing your decisions
+        <div class="dots">
+            <span></span><span></span><span></span>
+        </div>
+    </div>
+</body>
+</html>

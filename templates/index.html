@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Public Good Game</title>
+    <script>
+        let timer = 8;
+        function countdown() {
+            if (timer > 0) {
+                timer--;
+                document.getElementById('timer').innerText = timer;
+            } else {
+                document.getElementById('timer').innerText = '0';
+            }
+        }
+        setInterval(countdown, 1000);
+
+        // Prevent back navigation
+        (function() {
+            window.history.pushState(null, null, window.location.href);
+            window.onpopstate = function() {
+                window.history.go(1);
+            };
+        })();
+    </script>
+    <style>
+        body { text-align: center; margin: 50px auto; font-size: 24px; padding: 20px; max-width: 100%; }
+        p { max-width: 90%; margin: 20px auto; line-height: 1.5; font-size: 22px; }
+        .highlight { font-weight: bold; color: #007BFF; }
+        .btn-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; justify-content: center; }
+        .btn-container button { border-radius: 12px; padding: 15px 25px; margin: 5px; font-size: 20px; width: 100%; max-width: 150px; height: 60px; text-align: center; }
+
+        /* Mobile and tablet responsiveness */
+        @media only screen and (max-width: 768px) {
+            body { font-size: 35px; margin-top: 20px; padding: 15px; }
+            .btn-container {
+                grid-template-columns: 1fr 1fr;
+            }
+            .btn-container button {
+                font-size: 28px;
+                padding: 15px 30px;
+                width: 100%;
+                max-width: 150px;
+                height: 50px;
+                text-align: center;
+            }
+            .btn-container button:last-child {
+                grid-column: span 2;
+            }
+            p { font-size: 28px; line-height: 1.5; margin-bottom: 20px; }
+            .timer { font-size: 45px; }
+        }
+    </style>
+</head>
+<body>
+    <h1>Public Good Game - Session {{ session_num }} - Round {{ round }}</h1>
+    <div class="btn-container">
+        {% for i in range(11) %}
+            <form action="{{ url_for('play', contribution=i) }}" method="post">
+                <input type="hidden" name="time_exceeded" id="time_exceeded" value="0">
+                <button type="submit">{{ i }}</button>
+            </form>
+        {% endfor %}
+    </div>
+    <p>Current Balance: <span class="highlight">{{ balance }}</span></p>
+    <div class="timer">Decision Time: <span id="timer">8</span> sec.</div>
+</body>
+</html>
