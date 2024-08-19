@@ -12,9 +12,6 @@ import numpy as np
 import secrets
 import time
 
-# Load environment variables from .env file in development
-load_dotenv()
-
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', '4I6YU5ERTUC4')
 
