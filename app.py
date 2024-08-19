@@ -3,7 +3,11 @@ from flask import Flask, render_template, request, redirect, url_for, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from models import db  # Import the db instance from models.py
-from dotenv import load_dotenv
+# Conditionally load dotenv only in development
+if os.environ.get('FLASK_ENV') == 'development':
+    from dotenv import load_dotenv
+    load_dotenv()
+
 import numpy as np
 import secrets
 import time
