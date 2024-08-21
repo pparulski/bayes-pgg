@@ -3,7 +3,6 @@ from flask import Flask, render_template, request, redirect, url_for, session, j
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from models import db  # Import the db instance from models.py
-from dotenv import load_dotenv
 from sqlalchemy import func
 import requests
 from openai import OpenAI
