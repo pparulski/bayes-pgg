@@ -14,7 +14,7 @@ import random
 import datetime  # Import datetime for timestamps
 import re
 
-client = OpenAI(api_key=os.environ.get('OPEN_API_KEY'))
+client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
 # Load environment variables from .env file in development
 #load_dotenv()
 
