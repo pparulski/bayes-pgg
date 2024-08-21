@@ -16,7 +16,7 @@ import re
 
 client = OpenAI(api_key=os.environ.get('OPEN_API_KEY'))
 # Load environment variables from .env file in development
-load_dotenv()
+#load_dotenv()
 
 def calculate_human_player_average():
     contributions = session.get('contributions', [])
