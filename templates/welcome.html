@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Welcome to the Study!</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
     <script>
         (function() {
             window.history.pushState(null, null, window.location.href);
@@ -11,18 +12,58 @@
             };
         })();
     </script>
-    <style>
-        body { text-align: center; margin: 50px auto; font-size: 24px; padding: 20px; max-width: 100%; }
-        .gdpr { margin: 20px auto; max-width: 70%; line-height: 1.5; text-align: left; border: 2px solid #007BFF; padding: 15px; border-radius: 12px; font-size: 20px; }
-        .info { margin-top: 30px; max-width: 70%; line-height: 1.5; color: black; font-size: 24px; text-align: center; margin: 0 auto; }
-        button { border-radius: 16px; padding: 20px 40px; margin: 15px; font-size: 28px; width: 100%; max-width: 250px; }
+    <script>
+    <script>
+        // Check if the test cookie was set
+        window.onload = function() {
+            var cookies = document.cookie.split(';').reduce(function(cookies, cookie) {
+                var parts = cookie.split('=');
+                cookies[parts[0].trim()] = parts[1];
+                return cookies;
+            }, {});
 
+            if (!cookies['test_cookie']) {
+                // Redirect to cookies_required if the test cookie is not found
+                window.location.href = "{{ url_for('cookies_required') }}";
+            }
+        };
+    </script>
+    <style>
+        body { text-align: center; margin: 50px auto; font-size: 24px; padding: 20px; max-width: 100%; font-family: 'Roboto', sans-serif;}
+        .gdpr { margin: 20px auto; max-width: 70%; line-height: 1.5; text-align: left; border: 2px solid #007BFF; padding: 15px; border-radius: 12px; font-size: 20px; font-family: 'Roboto', sans-serif;}
+        .info { margin-top: 30px; max-width: 70%; line-height: 1.5; color: black; font-size: 24px; text-align: center; margin: 0 auto; font-family: 'Roboto', sans-serif;}
+        button { 
+        border-radius: 16px; 
+        padding: 20px 40px; 
+        margin: 15px; 
+        font-size: 28px; 
+        width: 100%; 
+        max-width: 250px; 
+        background-color: #007BFF; /* Updated background color */
+        color: white; /* Updated text color */
+        border: none; /* Remove default border */
+        cursor: pointer; /* Ensure the cursor indicates the button is clickable */
+        font-family: 'Roboto', sans-serif;
+    }
+    button:hover {
+        background-color: #0056b3; /* Updated hover effect */
+    }
         /* Mobile and tablet responsiveness */
         @media only screen and (max-width: 768px) {
             body { font-size: 35px; margin-top: 40px; padding: 30px; }
             .gdpr { font-size: 25px; }
             .info { font-size: 35px; margin-bottom: 30px; }
-            button { font-size: 37.5px; padding: 37.5px; max-width: 375px; }
+            button { 
+            font-size: 37.5px; 
+            padding: 37.5px; 
+            max-width: 375px; 
+            background-color: #007BFF; /* Maintain background color */
+            color: white; /* Maintain text color */
+            border: none; /* Maintain border setting */
+        }
+        button:hover {
+            background-color: #0056b3; /* Maintain hover effect */
+        }
         }
     </style>
 </head>

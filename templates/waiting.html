@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Waiting</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
     <meta http-equiv="refresh" content="{{ wait_time }};url={{ url_for('outcome') }}">
     <script>
         (function() {
@@ -13,9 +14,9 @@
         })();
     </script>
     <style>
-        body { display: flex; justify-content: center; align-items: center; height: 100vh; font-size: 24px; flex-direction: column; padding: 20px; }
+        body { display: flex; justify-content: center; align-items: center; height: 100vh; font-size: 24px; flex-direction: column; padding: 20px; font-family: 'Roboto', sans-serif;}
         .cross { font-size: 60px; }
-        .thinking { margin-top: 30px; text-align: center; font-size: 28px; }
+        .thinking { margin-top: 30px; text-align: center; font-size: 28px; font-family: 'Roboto', sans-serif;}
         .dots { display: inline-block; }
         .dots span {
             display: inline-block;

@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Public Good Game</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
     <script>
         let timer = 8;
         function countdown() {
@@ -22,46 +23,108 @@
                 window.history.go(1);
             };
         })();
+
+        // Disable submit button after click
+        document.addEventListener("DOMContentLoaded", function() {
+            const forms = document.querySelectorAll("form");
+            forms.forEach(form => {
+                form.addEventListener("submit", function(event) {
+                    const submitButton = form.querySelector("button[type='submit']");
+                    submitButton.disabled = true;
+                });
+            });
+        });
     </script>
     <style>
-        body { text-align: center; margin: 50px auto; font-size: 24px; padding: 20px; max-width: 100%; }
-        p { max-width: 90%; margin: 20px auto; line-height: 1.5; font-size: 22px; }
-        .highlight { font-weight: bold; color: #007BFF; }
-        .btn-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; justify-content: center; }
-        .btn-container button { border-radius: 12px; padding: 15px 25px; margin: 5px; font-size: 20px; width: 100%; max-width: 150px; height: 60px; text-align: center; }
+        body { 
+            text-align: center; 
+            margin: 50px auto; 
+            font-size: 24px; 
+            padding: 20px; 
+            max-width: 100%;
+            font-family: 'Roboto', sans-serif;
+        }
+        p { 
+            max-width: 90%; 
+            margin: 20px auto; 
+            line-height: 1.5; 
+            font-size: 22px;
+            font-family: 'Roboto', sans-serif;
+        }
+        .highlight { 
+            font-weight: bold; 
+            color: #007BFF; 
+        }
+        .btn-container { 
+            display: flex; 
+            flex-wrap: wrap; 
+            justify-content: center; 
+            gap: 10px; 
+            margin-top: 20px; 
+        }
+        .btn-container form { 
+            margin: 0; 
+        }
+        .btn-container button { 
+            border-radius: 12px; 
+            padding: 15px; 
+            font-size: 22px; 
+            width: 90px; 
+            height: 90px; 
+            text-align: center; 
+            cursor: pointer; 
+            background-color: #007BFF; 
+            color: white; 
+            border: none;
+            font-family: 'Roboto', sans-serif;
+        }
+        .btn-container button:hover {
+            background-color: #0056b3; 
+        }
 
         /* Mobile and tablet responsiveness */
         @media only screen and (max-width: 768px) {
-            body { font-size: 35px; margin-top: 20px; padding: 15px; }
+            body { 
+                font-size: 28px; 
+                margin-top: 20px; 
+                padding: 15px; 
+            }
             .btn-container {
-                grid-template-columns: 1fr 1fr;
+                gap: 8px; /* Smaller gap on mobile */
             }
             .btn-container button {
-                font-size: 28px;
-                padding: 15px 30px;
-                width: 100%;
-                max-width: 150px;
-                height: 50px;
-                text-align: center;
+                font-size: 20px;
+                width: 70px;
+                height: 70px;
             }
-            .btn-container button:last-child {
-                grid-column: span 2;
+            p { 
+                font-size: 24px; 
+                line-height: 1.5; 
+                margin-bottom: 20px; 
             }
-            p { font-size: 28px; line-height: 1.5; margin-bottom: 20px; }
-            .timer { font-size: 45px; }
+            .timer { 
+                font-size: 40px; 
+            }
         }
     </style>
 </head>
 <body>
     <h1>Public Good Game - Session {{ session_num }} - Round {{ round }}</h1>
     <div class="btn-container">
-        {% for i in range(11) %}
+    {% for i in range(11) %}
+        {% if session_num == 0 %}
+            <!-- If in training phase, use the training_play route -->
+            <form action="{{ url_for('training_play', contribution=i) }}" method="post">
+        {% else %}
+            <!-- If in the regular game phase, use the play route -->
             <form action="{{ url_for('play', contribution=i) }}" method="post">
-                <input type="hidden" name="time_exceeded" id="time_exceeded" value="0">
-                <button type="submit">{{ i }}</button>
+        {% endif %}
+            <input type="hidden" name="time_exceeded" id="time_exceeded" value="0">
+            <button type="submit">{{ i }}</button>
             </form>
         {% endfor %}
     </div>
+
     <p>Current Balance: <span class="highlight">{{ balance }}</span></p>
     <div class="timer">Decision Time: <span id="timer">8</span> sec.</div>
 </body>
