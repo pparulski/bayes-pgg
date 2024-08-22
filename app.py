@@ -4,7 +4,6 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from models import db  # Import the db instance from models.py
 from sqlalchemy import func
-from dotenv import load_dotenv
 import requests
 from openai import OpenAI
 import numpy as np
@@ -14,55 +13,14 @@ import random
 import datetime  # Import datetime for timestamps
 import re
 
+# Use the environment variable for OpenAI API key
 client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
-# Load environment variables from .env file in development
-load_dotenv()
-
-def calculate_human_player_average():
-    contributions = session.get('contributions', [])
-    if contributions and session['session_num'] == 1:
-        avg_contribution = sum(contributions) / len(contributions)
-    else:
-        avg_contribution = 0
-    return avg_contribution
-
-def calculate_historic_human_average(current_participant_id):
-    # Calculate the historic average contributions for all human participants (excluding the current participant)
-    historic_human_avg_contribution = (
-        db.session.query(db.func.avg(Participant.contribution))
-        .filter(
-            Participant.session_num == 1,
-            Participant.participant_id != current_participant_id
-        )
-        .scalar()
-    )
-    return historic_human_avg_contribution or 0  # Return 0 if no data is found
-
-def calculate_ai_player_average(session_num):
-    # Query the database directly for the AI's contributions in the specified session
-    ai_avg_contribution = (
-        db.session.query(db.func.avg(Participant.bot_contribution))
-        .filter(Participant.session_num == session_num)
-        .scalar()
-    )
-    return ai_avg_contribution or 0  # Return 0 if no data is found
-
-def calculate_historic_ai_average(current_participant_id):
-    historic_ai_avg_contribution = (
-        db.session.query(db.func.avg(Participant.bot_contribution))
-        .filter(
-            Participant.session_num == 1,
-            Participant.participant_id != current_participant_id
-        )
-        .scalar()
-    )
-    return historic_ai_avg_contribution or 0
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', '4I6YU5ERTUC4')
+app.secret_key = os.environ.get('SECRET_KEY')
 
 # Database setup
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///default.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize the db instance and migrate
@@ -603,4 +561,4 @@ def result():
     )
 
 if __name__ == '__main__':
-    app.run(debug=true)
+    app.run(debug=True)
