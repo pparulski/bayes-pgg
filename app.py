@@ -23,6 +23,7 @@ app.secret_key = os.environ.get('SECRET_KEY')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+
 # Initialize the db instance and migrate
 db.init_app(app)
 migrate = Migrate(app, db)  # Initialize Flask-Migrate with the app and db
