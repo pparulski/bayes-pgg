@@ -4,7 +4,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from models import db  # Import the db instance from models.py
 from sqlalchemy import func
-#from dotenv import load_dotenv
+from dotenv import load_dotenv
 import requests
 from openai import OpenAI
 import numpy as np
@@ -16,7 +16,7 @@ import re
 
 client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
 # Load environment variables from .env file in development
-#load_dotenv()
+load_dotenv()
 
 def calculate_human_player_average():
     contributions = session.get('contributions', [])
@@ -603,4 +603,4 @@ def result():
     )
 
 if __name__ == '__main__':
-    app.run()
+    app.run(debug=true)
