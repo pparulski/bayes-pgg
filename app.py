@@ -22,9 +22,12 @@ app.secret_key = os.environ.get('SECRET_KEY')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Initialize the db instance and migrate
-db = SQLAlchemy(app)  # Initialize the db once with the app
-migrate = Migrate(app, db)  # Initialize Flask-Migrate with the app and db
+# Initialize the db with the app, which was created in models.py
+db.init_app(app)
+
+# Initialize Flask-Migrate with the app and db
+migrate = Migrate(app, db)
+
 
 # Game settings
 initial_tokens = 10
