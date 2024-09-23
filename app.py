@@ -19,10 +19,10 @@ client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY')
 
-# Database setup
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///local.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+db = SQLAlchemy(app)
 
 # Initialize the db instance and migrate
 db.init_app(app)
