@@ -20,8 +20,9 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY')
 
 # Database setup
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///local.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
 
 # Initialize the db instance and migrate
 db.init_app(app)
