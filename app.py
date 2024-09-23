@@ -496,7 +496,7 @@ def average_message():
     # Calculate AI contributions for the current session
     ai_avg_contribution = round(calculate_ai_player_average(participant_id), 1)
     historic_ai_avg_contribution = 8.1
-    ai_divergence = round(ai_avg_contribution - historic_ai_avg_contribution, 1)
+    ai_divergence = round(float(ai_avg_contribution) - historic_ai_avg_contribution, 1)
 
     # Log the calculated averages and divergences
     print(f"Human Avg Contribution (Session {session_num}): {human_avg_contribution}")
