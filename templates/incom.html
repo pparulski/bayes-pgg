@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Self-Comparison Questions</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
+    <style>
+        body { font-family: 'Roboto', sans-serif; text-align: center; margin: 30px auto; max-width: 1000px; font-size: 20px; line-height: 1.6; }
+        button {
+            padding: 10px 10px; margin: 5px; font-size: 18px;
+            border-radius: 8px; background-color: #ccc; border: none; cursor: pointer;
+        }
+        .active { background-color: #007BFF; color: white; }
+        .likert-container { margin-bottom: 20px; }
+        .disabled { cursor: not-allowed; }
+
+        /* Updated Flexbox styles */
+        .likert-buttons { display: flex; justify-content: space-between; }
+        .likert-buttons button { flex: 1; margin: 0 50px; } /* Evenly space the buttons */
+
+        .scale-labels { display: flex; justify-content: space-between; font-size: 16px; padding-left: 65px; padding-right: 65px; margin-top: 5px; }
+        .scale-labels span { text-align: center; }
+    </style>
+</head>
+<body>
+    <h1>Self-Comparison Questions</h1>
+    <h4>Most people compare themselves from time to time with others. For example, they may compare the way they feel, their opinions, their abilities, and/or their situation with those of other people. There is nothing particularly “good” or “bad” about this type of comparison, and some people do it more than others. We would like to find out how often you compare yourself with other people. To do that, we would like you to indicate how much you agree with each statement below, by using the following scale.</h4>
+    <p><b>Please answer using the following scale:</b> <br>The value 1 means: <i>I disagree strongly</i><br>The value 5 means: <i>I agree strongly</i><br>You can use the values between 1 and 5 to grade your opinion.</p>
+    <br>
+    <form id="incom-form" method="POST" action="{{ url_for('incom') }}">
+        <div class="likert-container">
+            <p><b>Question 1:</b> I always pay a lot of attention to how I do things compared with how others do things.</p>
+            <div class="likert-buttons">
+                {% for i in range(1, 6) %}
+                <button type="button" class="likert-button" data-question="1" data-value="{{ i }}">{{ i }}</button>
+                {% endfor %}
+                <input type="hidden" name="incom_1" id="incom_1">
+            </div>
+            <div class="scale-labels">
+                <span>I disagree<br>strongly</span>
+                <span>I agree<br>strongly</span>
+            </div>
+        </div>
+
+        <div class="likert-container">
+            <p><b>Question 2:</b> I often compare how I am doing socially (e.g., social skills, popularity) with other people.</p>
+            <div class="likert-buttons">
+                {% for i in range(1, 6) %}
+                <button type="button" class="likert-button" data-question="2" data-value="{{ i }}">{{ i }}</button>
+                {% endfor %}
+                <input type="hidden" name="incom_2" id="incom_2">
+            </div>
+            <div class="scale-labels">
+                <span>I disagree<br>strongly</span>
+                <span>I agree<br>strongly</span>
+            </div>
+        </div>
+
+        <div class="likert-container">
+            <p><b>Question 3:</b> I am not the type of person who compares often with others.</p>
+            <div class="likert-buttons">
+                {% for i in range(1, 6) %}
+                <button type="button" class="likert-button" data-question="3" data-value="{{ i }}">{{ i }}</button>
+                {% endfor %}
+                <input type="hidden" name="incom_3" id="incom_3">
+            </div>
+            <div class="scale-labels">
+                <span>I disagree<br>strongly</span>
+                <span>I agree<br>strongly</span>
+            </div>
+        </div>
+
+        <div class="likert-container">
+            <p><b>Question 4:</b> I often try to find out what others think who face similar problems as I face.</p>
+            <div class="likert-buttons">
+                {% for i in range(1, 6) %}
+                <button type="button" class="likert-button" data-question="4" data-value="{{ i }}">{{ i }}</button>
+                {% endfor %}
+                <input type="hidden" name="incom_4" id="incom_4">
+            </div>
+            <div class="scale-labels">
+                <span>I disagree<br>strongly</span>
+                <span>I agree<br>strongly</span>
+            </div>
+        </div>
+
+        <div class="likert-container">
+            <p><b>Question 5:</b> I always like to know what others in a similar situation would do.</p>
+            <div class="likert-buttons">
+                {% for i in range(1, 6) %}
+                <button type="button" class="likert-button" data-question="5" data-value="{{ i }}">{{ i }}</button>
+                {% endfor %}
+                <input type="hidden" name="incom_5" id="incom_5">
+            </div>
+            <div class="scale-labels">
+                <span>I disagree<br>strongly</span>
+                <span>I agree<br>strongly</span>
+            </div>
+        </div>
+
+        <div class="likert-container">
+            <p><b>Question 6:</b> If I want to learn more about something, I try to find out what others think about it.</p>
+            <div class="likert-buttons">
+                {% for i in range(1, 6) %}
+                <button type="button" class="likert-button" data-question="6" data-value="{{ i }}">{{ i }}</button>
+                {% endfor %}
+                <input type="hidden" name="incom_6" id="incom_6">
+            </div>
+            <div class="scale-labels">
+                <span>I disagree<br>strongly</span>
+                <span>I agree<br>strongly</span>
+            </div>
+        </div>
+
+        <button type="submit" id="submit-button" class="disabled" disabled>Continue</button>
+    </form>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const questionAnswers = {};
+            const buttons = document.querySelectorAll(".likert-button");
+
+            // Set up button click handlers for each likert button
+            buttons.forEach(button => {
+                button.addEventListener("click", function() {
+                    const question = this.dataset.question;
+                    const value = this.dataset.value;
+
+                    // Store the selected value in questionAnswers
+                    questionAnswers[question] = value;
+
+                    // Update hidden input field to store value
+                    document.getElementById(`incom_${question}`).value = value;
+
+                    // Visual feedback: highlight selected button
+                    const siblingButtons = document.querySelectorAll(`.likert-button[data-question="${question}"]`);
+                    siblingButtons.forEach(sibling => sibling.classList.remove("active"));
+                    this.classList.add("active");
+
+                    // Check if all questions have been answered
+                    const allQuestionsAnswered = Object.keys(questionAnswers).length === 6;
+                    const submitButton = document.getElementById("submit-button");
+
+                    // Enable submit button only when all questions are answered
+                    if (allQuestionsAnswered) {
+                        submitButton.classList.remove("disabled");
+                        submitButton.disabled = false;
+                        submitButton.style.backgroundColor = '#007BFF';
+                    }
+                });
+            });
+
+            // Before form submit, ensure the latest values are stored in hidden inputs
+            const form = document.getElementById("incom-form");
+            form.addEventListener("submit", function(event) {
+                Object.keys(questionAnswers).forEach(question => {
+                    // Ensure hidden input fields are updated with the latest selected value
+                    document.getElementById(`incom_${question}`).value = questionAnswers[question];
+                });
+            });
+        });
+    </script>
+</body>
+</html>

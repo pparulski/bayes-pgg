@@ -5,18 +5,6 @@
     <title>Public Good Game</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
     <script>
-        let timer = 8;
-        function countdown() {
-            if (timer > 0) {
-                timer--;
-                document.getElementById('timer').innerText = timer;
-            } else {
-                document.getElementById('timer').innerText = '0';
-            }
-        }
-        setInterval(countdown, 1000);
-
-        // Prevent back navigation
         (function() {
             window.history.pushState(null, null, window.location.href);
             window.onpopstate = function() {
@@ -24,7 +12,6 @@
             };
         })();
 
-        // Disable submit button after click
         document.addEventListener("DOMContentLoaded", function() {
             const forms = document.querySelectorAll("form");
             forms.forEach(form => {
@@ -82,7 +69,6 @@
             background-color: #0056b3; 
         }
 
-        /* Mobile and tablet responsiveness */
         @media only screen and (max-width: 768px) {
             body { 
                 font-size: 28px; 
@@ -90,7 +76,7 @@
                 padding: 15px; 
             }
             .btn-container {
-                gap: 8px; /* Smaller gap on mobile */
+                gap: 8px;
             }
             .btn-container button {
                 font-size: 20px;
@@ -102,30 +88,36 @@
                 line-height: 1.5; 
                 margin-bottom: 20px; 
             }
-            .timer { 
-                font-size: 40px; 
-            }
         }
     </style>
 </head>
 <body>
-    <h1>Public Good Game - Session {{ session_num }} - Round {{ round }}</h1>
+    <h1>Game {{ game }} – Session {{ session_num }}</h1>
+    <p>You have 10 tokens. Choose how many tokens you want to contribute to the group account:</p>
+
     <div class="btn-container">
-    {% for i in range(11) %}
-        {% if session_num == 0 %}
-            <!-- If in training phase, use the training_play route -->
-            <form action="{{ url_for('training_play', contribution=i) }}" method="post">
-        {% else %}
-            <!-- If in the regular game phase, use the play route -->
-            <form action="{{ url_for('play', contribution=i) }}" method="post">
-        {% endif %}
-            <input type="hidden" name="time_exceeded" id="time_exceeded" value="0">
-            <button type="submit">{{ i }}</button>
-            </form>
+        {% for i in range(11) %}
+        <form method="post" action="{{ url_for('play', contribution=i) }}">
+            <button type="submit" class="contribution-button">{{ i }}</button>
+        </form>
         {% endfor %}
     </div>
 
-    <p>Current Balance: <span class="highlight">{{ balance }}</span></p>
-    <div class="timer">Decision Time: <span id="timer">8</span> sec.</div>
+        <p>
+        <h2>The rules:</h2>
+        <div style="margin-bottom: 20px;">
+            <h3>If sum of both contributions is less than 10:</h3>
+            <p>
+                You receive half of it plus what's left in your private account.
+            </p>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            <h3>If sum of both contributions is equal or greater than 10:</h3>
+            <p>
+                You receive half of it multiplied by 1.5 plus what's left in your private account.
+            </p>
+        </div>
+    </p>
 </body>
 </html>

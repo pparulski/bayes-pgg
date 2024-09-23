@@ -21,29 +21,28 @@
         font-size: 28px; 
         width: 100%; 
         max-width: 250px; 
-        background-color: #007BFF; /* Updated background color */
-        color: white; /* Updated text color */
-        border: none; /* Remove default border */
-        cursor: pointer; /* Ensure the cursor indicates the button is clickable */
+        background-color: #007BFF;
+        color: white;
+        border: none;
+        cursor: pointer;
         font-family: 'Roboto', sans-serif;
     }
     button:hover {
-        background-color: #0056b3; /* Updated hover effect */
+        background-color: #0056b3;
     }
 
-        /* Mobile and tablet responsiveness */
         @media only screen and (max-width: 768px) {
             body { font-size: 35px; margin-top: 40px; padding: 30px; }
             button { 
             font-size: 37.5px; 
             padding: 37.5px; 
             max-width: 375px; 
-            background-color: #007BFF; /* Maintain background color */
-            color: white; /* Maintain text color */
-            border: none; /* Maintain border setting */
+            background-color: #007BFF;
+            color: white;
+            border: none;
         }
         button:hover {
-            background-color: #0056b3; /* Maintain hover effect */
+            background-color: #0056b3;
         }
         }
     </style>
@@ -51,7 +50,8 @@
 <body>
     <h1>Message</h1>
     <p>{{ message }}</p>
-    <form action="{{ url_for('continue_game') }}" method="get">
+    <!-- Correcting the navigation to the next session start -->
+    <form action="{{ url_for('game') }}" method="get">
         <button type="submit">Proceed to session {{ next_session_num }}</button>
     </form>
 </body>

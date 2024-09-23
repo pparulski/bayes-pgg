@@ -15,10 +15,7 @@
     <style>
         body { text-align: center; margin: 50px auto; font-size: 24px; padding: 20px; max-width: 100%; font-family: 'Roboto', sans-serif;}
         p { max-width: 90%; margin: 20px auto; line-height: 1.5; font-size: 24px; font-family: 'Roboto', sans-serif;}
-        .highlight { font-weight: bold; }
-        .positive { color: #28a745; } /* Green for positive divergence */
-        .negative { color: #dc3545; } /* Red for negative divergence */
-        .neutral { color: #6c757d; }  /* Gray for neutral (0) divergence */
+        .highlight { font-weight: bold; color: #007BFF;}
         button { 
             border-radius: 16px; 
             padding: 20px 40px; 
@@ -26,17 +23,16 @@
             font-size: 28px; 
             width: 100%; 
             max-width: 250px; 
-            background-color: #007BFF; /* Updated background color */
-            color: white; /* Updated text color */
-            border: none; /* Remove default border */
-            cursor: pointer; /* Ensure the cursor indicates the button is clickable */
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            cursor: pointer;
             font-family: 'Roboto', sans-serif;
         }
         button:hover {
-            background-color: #0056b3; /* Updated hover effect */
+            background-color: #0056b3;
         }
 
-        /* Mobile and tablet responsiveness */
         @media only screen and (max-width: 768px) {
             body { font-size: 35px; margin-top: 40px; padding: 30px; }
             p { font-size: 35px; line-height: 1.5; margin-bottom: 30px; }
@@ -44,31 +40,32 @@
                 font-size: 37.5px; 
                 padding: 37.5px; 
                 max-width: 375px; 
-                background-color: #007BFF; /* Maintain background color */
-                color: white; /* Maintain text color */
-                border: none; /* Maintain border setting */
+                background-color: #007BFF;
+                color: white;
+                border: none;
             }
             button:hover {
-                background-color: #0056b3; /* Maintain hover effect */
+                background-color: #0056b3;
             }
         }
     </style>
 </head>
 <body>
-    <h1>Session Analysis</h1>
-    <p>Your average contribution: <strong>{{ human_avg_contribution }}</strong></p>
-    <p>Other participants' average contribution: <strong>{{ historic_human_avg_contribution }}</strong></p>
-
+    <h1>Average Contribution Analysis</h1>
+    <p>Your average contribution in the first session: <span class="highlight">{{ human_avg_contribution }}</span></p>
+    <p>Other participants' average contribution in the first session: <span class="highlight">{{ historic_human_avg_contribution }}</span></p>
     {% if divergence > 0 %}
-        <p>You have contributed on average <span class="highlight positive">{{ divergence }}</span> more than the previous participants.</p>
+        <p>You have contributed on average <span class="highlight">{{ divergence }} more</span> than the previous participants.</p>
     {% elif divergence < 0 %}
-        <p>You have contributed on average <span class="highlight negative">{{ -divergence }}</span> less than the previous participants.</p>
+        <p>You have contributed on average <span class="highlight">{{ divergence | abs }} less</span> than the previous participants.</p>
     {% else %}
-        <p>You have contributed on average <span class="highlight neutral">{{ human_avg_contribution }}</span>. Exactly the same as other participants.</p>
+        <p>You have contributed on average precisely the same as the previous participants.</p>
     {% endif %}
-
-    <form action="{{ url_for('continue_game') }}" method="get">
+        <p>The AI player also received their average contribution analysis.</p>
+    <!-- Ensure that it navigates to the 'start' of the next session -->
+    <form action="{{ url_for('game') }}" method="get">
         <button type="submit">Proceed to session {{ next_session_num }}</button>
     </form>
 </body>
+
 </html>

@@ -1,17 +1,17 @@
 import os
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify, make_response
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, make_response, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
-from models import db  # Import the db instance from models.py
+from models import db, Participant, save_participant_data, calculate_human_player_average, calculate_ai_player_average
 from sqlalchemy import func
 import requests
 from openai import OpenAI
 import numpy as np
 import secrets
-import time
-import random
-import datetime  # Import datetime for timestamps
+import time  # Ensure time is imported correctly
+import datetime
 import re
+
 
 # Use the environment variable for OpenAI API key
 client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
@@ -23,50 +23,60 @@ app.secret_key = os.environ.get('SECRET_KEY')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-
 # Initialize the db instance and migrate
 db.init_app(app)
 migrate = Migrate(app, db)  # Initialize Flask-Migrate with the app and db
 
 # Game settings
-initial_tokens = 20
-max_contribution = 10
-total_rounds = 25
-total_sessions = 2
+initial_tokens = 10
+total_games = 10  # Number of one-shot games in each session
+total_sessions = 2  # Number of sessions
 
-# Database models
-class Participant(db.Model):
-    __tablename__ = 'participant'
-    id = db.Column(db.Integer, primary_key=True)
-    participant_id = db.Column(db.String(16), nullable=False)
-    group = db.Column(db.String(50), nullable=False)
-    session_num = db.Column(db.Integer, nullable=False)
-    round_num = db.Column(db.Integer, nullable=False)
-    contribution = db.Column(db.Integer, nullable=False)
-    bot_contribution = db.Column(db.Integer, nullable=False)
-    participant_balance = db.Column(db.Integer, nullable=False)
-    bot_balance = db.Column(db.Integer, nullable=False)
-    net_gain = db.Column(db.Integer, nullable=False)
-    time_exceeded = db.Column(db.Integer, nullable=False)
-    start_timestamp = db.Column(db.DateTime, nullable=True)
-    end_timestamp = db.Column(db.DateTime, nullable=True)
 
-    __table_args__ = (db.UniqueConstraint('participant_id', 'session_num', 'round_num', name='_participant_session_round_uc'),)
-
-    def __repr__(self):
-        return f'<Participant {self.participant_id} - Session {self.session_num}, Round {self.round_num}>'
+# Function to restore state from cookies
+@app.before_request
+def restore_state_from_cookies():
+    if 'session_num' not in session:
+        session['session_num'] = int(request.cookies.get('session_num', 1))
+    if 'game' not in session:
+        session['game'] = int(request.cookies.get('game', 1))
 
 @app.route('/')
 def welcome():
-    # Redirect to check cookies first
+    # Capture Prolific PID and Session ID from URL parameters
+    prolific_pid = request.args.get('PROLIFIC_PID')
+    session_id = request.args.get('SESSION_ID')
+
+    # Ensure Prolific PID and Session ID are captured
+    if prolific_pid and session_id:
+        session['prolific_pid'] = prolific_pid
+        session['session_id'] = session_id
+    else:
+        # Handle the case where these parameters are missing
+        return "Missing Prolific PID or Session ID", 400
+
+    # Check for cookies that store the last page, game, and session state
+    last_page = request.cookies.get('last_page')
+    game = request.cookies.get('game')
+    session_num = request.cookies.get('session_num')
+
+    # If cookies are set, restore the state
+    if last_page and game and session_num:
+        session['game'] = int(game)
+        session['session_num'] = int(session_num)
+        return redirect(url_for(last_page))
+
     return redirect(url_for('check_cookies'))
 
 @app.route('/check_cookies')
 def check_cookies():
-    # Set a test cookie and redirect to a page that checks if the cookie was set
     resp = make_response(redirect(url_for('show_welcome')))
     resp.set_cookie('test_cookie', 'test_value', max_age=3600)  # Expires in 1 hour
     return resp
+
+@app.route('/cookies_required')
+def cookies_required():
+    return render_template('cookies_required.html')
 
 @app.route('/show_welcome')
 def show_welcome():
@@ -79,134 +89,16 @@ def show_welcome():
         session['start_timestamp'] = datetime.datetime.now(datetime.UTC)  # Record the start timestamp
     return render_template('welcome.html')
 
-@app.route('/cookies_required')
-def cookies_required():
-    return render_template('cookies_required.html')
-
-@app.route('/training')
-def training():
-    # Initialize training session data
-    session['session_num'] = 0  # Use session_num 0 for training
-    session['round'] = 1
-    session['contributions'] = []
-    session['bot_contributions'] = []
-    session['participant_balances'] = [initial_tokens]
-    session['bot_balances'] = [initial_tokens]
-    session['participant_balance'] = initial_tokens
-    session['bot_balance'] = initial_tokens
-    session['training_mode'] = True  # Flag to indicate training mode
-    return redirect(url_for('training_game'))
-
-@app.route('/training_game')
-def training_game():
-    round_num = session.get('round', 1)  # Ensure round_num is initialized
-    balance = session.get('participant_balance', initial_tokens)  # Ensure balance is initialized
-    pot = session.get('pot', 0)  # Initialize pot if not already set
-    return render_template('index.html', session_num=0, round=round_num, balance=balance, pot=pot)
-
-@app.route('/training_play/<int:contribution>', methods=['POST'])
-def training_play(contribution):
-    round_num = session['round']
-    participant_balance = session['participant_balance']
-    bot_balance = session['bot_balance']
-    pot = session.get('pot', 0)  # Get the pot for the current round
-
-    # Dummy AI player contributes 5 in every round
-    bot_contribution = 5
-
-    # Log the contributions
-    print(f"(Training) Human Contribution (Round {round_num}): {contribution}")
-    print(f"(Training) Dummy AI Contribution (Round {round_num}): {bot_contribution}")
-
-    # Calculate new balances
-    total_contribution = contribution + bot_contribution + pot  # Add pot to total contribution
-    print(f"(Training) Total Contribution before multiplier: {total_contribution}")
-
-    if total_contribution >= 10:  # Apply multiplier if total contribution is 10 or greater
-        total_contribution *= 1.5
-        print(f"(Training) Total Contribution after multiplier: {total_contribution}")
-
-    round_balance = int(total_contribution // 2)
-    remainder = total_contribution % 2  # Calculate the remainder
-
-    # Log the round balance and remainder
-    print(f"(Training) Round Balance: {round_balance}")
-    print(f"(Training) Remainder to carry over: {remainder}")
-
-    net_gain = round_balance - contribution
-    participant_balance += net_gain
-    bot_balance += round_balance - bot_contribution
-
-    # Update session data with new balances
-    session['participant_balance'] = round(participant_balance)
-    session['bot_balance'] = round(bot_balance)
-    session['round_balance'] = round(round_balance)
-    session['net_gain'] = net_gain
-
-    # Carry over the remainder to the next round if it's not the last round
-    if round_num < 5:  # Assuming 5 rounds in training
-        session['pot'] = remainder
-    else:
-        session['pot'] = 0  # No pot to carry over if it's the last round
-
-    # Log the updated balances
-    print(f"(Training) Updated Participant Balance: {participant_balance}")
-    print(f"(Training) Updated Bot Balance: {bot_balance}")
-
-    # Record contributions
-    contributions = session['contributions']
-    bot_contributions = session['bot_contributions']
-    participant_balances = session['participant_balances']
-    bot_balances = session['bot_balances']
-
-    contributions.append(contribution)
-    bot_contributions.append(bot_contribution)
-    participant_balances.append(round(participant_balance))
-    bot_balances.append(round(bot_balance))
-
-    session['contributions'] = contributions
-    session['bot_contributions'] = bot_contributions
-    session['participant_balances'] = participant_balances
-    session['bot_balances'] = bot_balances
-
-    # Prepare for the next round or end of training
-    round_num += 1
-    session['round'] = round_num
-
-    if round_num > 5:  # End training after 5 rounds
-        return redirect(url_for('training_end'))
-    else:
-        return redirect(url_for('training_game'))
-
-@app.route('/training_end')
-def training_end():
-    # Get the participant's balance after training
-    participant_balance = session.get('participant_balance', initial_tokens)
-
-    # Clear session data to reset for actual gameplay
-    session.clear()
-
-    # Prepare for the actual game (not training)
-    session['instructions_completed'] = True
-    session['participant_id'] = secrets.token_hex(8)  # Reassign participant ID
-    session['training_ended'] = True
-    session['participant_balance'] = participant_balance
-
-    # Redirect to the instructions page with a training ended message
-    return redirect(url_for('instructions', training_ended=True, participant_balance=participant_balance))
-
-@app.route('/start_game')
-def start_game():
-    # Clear session data to reset for actual gameplay
-    session.clear()
-    return redirect(url_for('instructions'))
-
-# Modify the instructions route to handle training end message
 @app.route('/instructions')
 def instructions():
-    training_ended = request.args.get('training_ended', False)
-    participant_balance = request.args.get('participant_balance', None)
-    return render_template('instructions.html', training_ended=training_ended, participant_balance=participant_balance)
+    resp = make_response(render_template('instructions.html'))
+
+    # Set cookies for last visited page, game number, and session number
+    resp.set_cookie('last_page', 'instructions', max_age=3600)
+    resp.set_cookie('game', str(session.get('game', 1)), max_age=3600)  # Store game number
+    resp.set_cookie('session_num', str(session.get('session_num', 1)), max_age=3600)  # Store session number
+    
+    return resp
 
 @app.route('/start')
 def start():
@@ -219,16 +111,10 @@ def start():
     if 'session_num' not in session:
         session['session_num'] = 1
         session['game_history'] = []  # Initialize game history for this session
+        session['contributions'] = []  # Initialize contributions list
 
     # Initialize other session-related variables
-    session['round'] = 1
-    session['contributions'] = []
-    session['bot_contributions'] = []
-    session['participant_balances'] = [initial_tokens]
-    session['bot_balances'] = [initial_tokens]
-    session['participant_balance'] = initial_tokens
-    session['bot_balance'] = initial_tokens
-    session['pot'] = 0  # Initialize the pot
+    session['game'] = 1  # Start from game 1
     session['intervention'] = False
     session['session_started'] = True
 
@@ -236,13 +122,19 @@ def start():
 
 @app.route('/game')
 def game():
-    session['start_time'] = time.time()  # Record the start time of the current round
-    round_num = session['round']
-    session_num = session['session_num']
-    balance = session.get('participant_balance', initial_tokens)  # Ensure balance is initialized
-    round_balance = session.get('round_balance', None)
-    pot = session.get('pot', 0)  # Ensure pot is initialized
-    return render_template('index.html', session_num=session_num, round=round_num, balance=balance, round_balance=round_balance, pot=pot)
+    # Use session.get() without overwriting the session['game'] value
+    game = session.get('game', 1)
+    session_num = session.get('session_num', 1)
+
+    # Render the game page with the correct session data
+    resp = make_response(render_template('index.html', game=game, session_num=session_num))
+
+    # Set cookies for last visited page, game number, and session number
+    resp.set_cookie('last_page', 'game', max_age=3600)
+    resp.set_cookie('game', str(game), max_age=3600)  # Store game number
+    resp.set_cookie('session_num', str(session_num), max_age=3600)  # Store session number
+
+    return resp
 
 @app.route('/play/<int:contribution>', methods=['POST'])
 def play(contribution):
@@ -250,182 +142,160 @@ def play(contribution):
     session['current_contribution'] = contribution
 
     # Log the human contribution
-    print(f"(Human) Contribution (Round {session['round']}, Session {session['session_num']}): {contribution}")
+    print(f"(Human) Contribution (Game {session['game']}, Session {session['session_num']}): {contribution}")
 
-    # Record the human contribution immediately
-    session['contributions'].append(contribution)
-
-
-    # If in training mode, skip the waiting phase and go to the next training round
-    if session['session_num'] == 0:
-        return redirect(url_for('training_play', contribution=contribution))
+    # Add the contribution to the list
+    if 'contributions' in session:
+        session['contributions'].append(contribution)
+    else:
+        session['contributions'] = [contribution]
 
     # Redirect to the waiting page while the AI's move is being calculated
     return redirect(url_for('waiting'))
 
 @app.route('/waiting')
 def waiting():
-    # Skip API calls during training
-    if session['session_num'] == 0:
-        return redirect(url_for('training_game'))
-
-    # Normal game logic starts here
+    prolific_pid = session.get('prolific_pid')  # Retrieve from session
+    session_id = session.get('session_id')      # Retrieve from session
     contribution = session.get('current_contribution', 0)
-    round_num = session['round']
-    session_num = session['session_num']  # Get the session number
+
+    # Retrieve INCOM values from session, default to None if not set
+    incom_1 = session.get('incom_1', None)
+    incom_2 = session.get('incom_2', None)
+    incom_3 = session.get('incom_3', None)
+    incom_4 = session.get('incom_4', None)
+    incom_5 = session.get('incom_5', None)
+    incom_6 = session.get('incom_6', None)
+
+    game_num = session['game']
+    session_num = session['session_num']
     participant_id = session['participant_id']
-    pot = session.get('pot', 0)  # Get the pot for the current round
+    group = session['group']
 
-    # Ensure group is only accessed if not in training
-    if session_num > 0:
-        group = session['group']
-    else:
-        group = None
+    # Check if this game has already been processed
+    existing_entry = Participant.query.filter_by(
+        participant_id=participant_id,
+        session_num=session_num,
+        round_num=game_num
+    ).first()
 
-    # Fetch game history (exclude the current round)
-    game_history = session.get('game_history', [])
+    if existing_entry:
+        print(f"Game {game_num} of session {session_num} for participant {participant_id} has already been processed. Skipping.")
+        return redirect(url_for('outcome'))
 
-    # If round 1 of session 2 and in the experimental group, prepare special prompt
-    if group == 'experimental' and round_num == 1 and session_num == 2:
-        ai_avg_contribution = calculate_ai_player_average(session_num)  # Pass session_num here
-        historic_ai_avg_contribution = calculate_historic_ai_average(participant_id)
-        divergence = ai_avg_contribution - historic_ai_avg_contribution
+    # Fetch game history for the current session only
+    game_history = [game for game in session.get('game_history', []) if game['game_num'] <= total_games and game.get('session_num') == session_num]
 
-        gpt4_prompt = (
-            "You are playing a public goods game against a human. The game has 10 rounds. "
-            "In this game, each player can contribute between 0 and 10 tokens. "
-            "1.5 is the multiplier of payoff when both of you contribute at least 10 tokens. "
-            "If there is a remainder left after dividing, it is transferred to the next round. "
-            "Your goal is to collect as many tokens as possible at the end of the session. "
-            "Use your knowledge about human behavior in these types of games in your strategies. "
-            "The game ends early if one of the players is left with 0 tokens. "
-            f"In your previous session, your average contribution was {ai_avg_contribution}, "
-            f"while the historic average contribution of the rest of your plays in the first sessions is {historic_ai_avg_contribution}. "
-            f"The divergence is {divergence}. "
-            "Here's the history of the game so far:\n\n"
+    # Retrieve previous assistant messages from the session
+    previous_messages = session.get('previous_messages', [])
+
+    # Construct the new user message for the current round
+    new_message = {
+        "role": "user",
+        "content": "\nHere's the history of your games with this player so far:\n"
+    }
+
+    for game_info in game_history:
+        new_message['content'] += f"Game {game_info['game_num']}: Human contributed {game_info['human_contribution']}, You contributed {game_info['bot_contribution']}.\n"
+
+    new_message['content'] += "\nIt's your move. Provide a number between 0 and 10 for your tokens contribution for this game. Do not provide justification, just a number."
+
+    # Add the new user message to the conversation
+    previous_messages.append(new_message)
+
+    # If this is session 2 and the group is not 'control', add average contributions to the message
+    if session_num == 2 and group != 'control':
+        ai_avg_contribution = round(calculate_ai_player_average(participant_id), 1)
+        historic_ai_avg_contribution = 8.1  # Replace with actual calculation if needed
+        
+        previous_messages.append({
+            "role": "system",
+            "content": (
+                f"In the previous session, the AI's average contribution was {ai_avg_contribution}, "
+                f"while the historic AI average contribution is {historic_ai_avg_contribution}."
+            )
+        })
+
+    # System instructions (only needed once, placed before the conversation starts)
+    system_message = {
+        "role": "system",
+        "content": (
+            "You are playing a one-shot public goods game against a human. Each game, you receive 10 tokens. "
+            "You can contribute between 0 and 10 tokens to a group account. If the total contribution of both players is 10 or more, "
+            "the total contribution is multiplied by 1.5. The remaining tokens in your private account are added to half of the group account. "
+            "Earnings from private and group accounts are summed up and form your game score. Your goal is to maximize your score."
+            "Your goal is to maximize your score over 10 rounds by adapting to the human player's contributions."
+            "Adjust your contribution dynamically based on the human's previous contributions."
         )
-    else:
-        # Regular prompt
-        gpt4_prompt = (
-            "You are playing a public goods game against a human. The game has 10 rounds. "
-            "In this game, each player can contribute between 0 and 10 tokens. "
-            "1.5 is the multiplier of payoff when both of you contribute at least 10 tokens. "
-            "If there is a remainder left after dividing, it is transferred to the next round. "
-            "Your goal is to collect as many tokens as possible at the end of the session. "
-            "Use your knowledge about human behavior in these types of games in your strategies. "
-            "The game ends early if one of the players is left with 0 tokens. "
-            "Here's the history of the game so far:\n\n"
-        )
+    }
 
-    # Construct the prompt using only the completed rounds
-    for round_info in game_history:  # Only include previous rounds
-        gpt4_prompt += f"Round {round_info['round_num']}: Human contributed {round_info['human_contribution']}, You contributed {round_info['bot_contribution']}. Current balance: {round_info['balance']}.\n"
+    # Add the system message only once at the start
+    if not session.get('system_message_added'):
+        previous_messages.insert(0, system_message)  # Add it at the beginning of the conversation
+        session['system_message_added'] = True  # Mark that the system message was added
 
-    gpt4_prompt += "\nIt's your move. Please provide a number between 0 and 10 for your tokens contribution for this round. The only requirement for your answer is to NOT print justification, just put your number."
-
-    # Log the constructed prompt
-    print(f"Constructed Prompt: {gpt4_prompt}")
-
-    # Call the API for the AI contribution
     try:
+        # Send the entire conversation history (few-shot prompting)
         completion = client.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": gpt4_prompt}
-            ]
+            model="gpt-4o",
+            messages=previous_messages
         )
         bot_contribution = int(completion.choices[0].message.content.strip())
 
-        # Log the AI's contribution
-        print(f"(API) AI Contribution (Round {round_num}, Session {session_num}): {bot_contribution}")
+        print(f"(API) AI Contribution (Game {game_num}, Session {session_num}): {bot_contribution}")
 
-        # Calculate new balances, update game history, etc.
-        participant_balance = session['participant_balance']
-        bot_balance = session['bot_balance']
-
-        total_contribution = contribution + bot_contribution + pot  # Add pot to total contribution
+        # Calculate results
+        total_contribution = contribution + bot_contribution
         if total_contribution >= 10:
             total_contribution *= 1.5
-        total_contribution = int(total_contribution)
-        round_balance = total_contribution // 2
-        remainder = total_contribution % 2  # Calculate the remainder
 
-        # Log the round balance and remainder
-        print(f"Round Balance: {round_balance}")
-        print(f"Remainder to carry over: {remainder}")
+        private_account = 10 - contribution
+        score = private_account + (total_contribution / 2)
 
-        net_gain = round_balance - contribution
-        participant_balance += net_gain
-        bot_balance += round_balance - bot_contribution
-
-        session['participant_balance'] = round(participant_balance)
-        session['bot_balance'] = round(bot_balance)
-        session['round_balance'] = round(round_balance)
-        session['net_gain'] = net_gain
-
-        # Add current round data to game history
+        # Log game history
         game_history.append({
-            'round_num': round_num,
+            'game_num': game_num,
             'human_contribution': contribution,
             'bot_contribution': bot_contribution,
-            'balance': bot_balance  # Store the current balance after the round
+            'score': score,
+            'session_num': session_num  # Include session number in each game record
         })
         session['game_history'] = game_history
 
-        # Carry over the remainder to the next round if it's not the last round
-        if round_num < total_rounds:
-            session['pot'] = remainder
-        else:
-            session['pot'] = 0  # No pot to carry over if it's the last round
+        session['participant_balance'] = score
+        session['bot_contribution'] = bot_contribution
 
-        # Save to the database as necessary
-        if session['session_num'] > 0:  # Only save to the database in actual game sessions
-            participant_entry = Participant(
-                participant_id=participant_id,
-                group=group,  # Ensure group is assigned during the actual game
-                session_num=session_num,
-                round_num=round_num,
-                contribution=contribution,
-                bot_contribution=bot_contribution,
-                participant_balance=participant_balance,
-                bot_balance=bot_balance,
-                net_gain=net_gain,
-                time_exceeded=1 if time.time() - session['start_time'] > 8 else 0,
-                start_timestamp=session.get('start_timestamp')
-            )
-            db.session.add(participant_entry)
-            db.session.commit()
+        # Save the updated assistant message to the conversation history
+        previous_messages.append({
+            "role": "assistant",
+            "content": str(bot_contribution)
+        })
+        session['previous_messages'] = previous_messages  # Save the conversation in the session
 
-        # Prepare for the next round or session
-        round_num += 1
-        session['round'] = round_num
+        # Save the participant data as before
+        save_participant_data(
+            prolific_pid=prolific_pid,
+            session_id=session_id,
+            participant_id=participant_id,
+            session_num=session_num,
+            round_num=game_num,
+            contribution=contribution,
+            bot_contribution=bot_contribution,
+            participant_balance=score,
+            bot_balance=total_contribution - score,
+            net_gain=score - private_account,
+            group=group,
+            start_timestamp=session.get('start_timestamp'),
+            end_timestamp=None,
+            incom_1=incom_1,
+            incom_2=incom_2,
+            incom_3=incom_3,
+            incom_4=incom_4,
+            incom_5=incom_5,
+            incom_6=incom_6
+        )
 
-        # Check if participant or bot balance has reached 0
-        if participant_balance <= 0 or bot_balance <= 0:
-            session['end_timestamp'] = datetime.datetime.now(datetime.UTC)
-            if session_num == 1:
-                if group == 'control':
-                    return redirect(url_for('message'))
-                else:
-                    return redirect(url_for('average_message'))
-            else:
-                return redirect(url_for('result'))
-
-        # Check if the round number exceeds total rounds
-        if round_num > total_rounds:
-            if session_num == 1 and not session.get('intervention', False):
-                session['intervention'] = True
-                if group == 'control':
-                    return redirect(url_for('message'))
-                else:
-                    return redirect(url_for('average_message'))
-            else:
-                session['end_timestamp'] = datetime.datetime.now(datetime.UTC)
-                return redirect(url_for('result'))
-
-        # Continue to the outcome for the next round
-        session['start_time'] = time.time()
+        # Redirect to outcome without incrementing game count here
         return redirect(url_for('outcome'))
 
     except Exception as e:
@@ -434,33 +304,196 @@ def waiting():
 
 @app.route('/outcome')
 def outcome():
-    net_gain = session.get('net_gain', 0)  # Ensure net_gain is initialized
-    participant_balance = session.get('participant_balance', initial_tokens)  # Ensure balance is initialized
-    round_balance = session.get('round_balance', 0)  # Ensure round_balance is initialized
-    return render_template('outcome.html', net_gain=net_gain, total_balance=participant_balance, round_balance=round_balance)
+    prolific_pid = session.get('prolific_pid')  # Retrieve from session
+    session_id = session.get('session_id')      # Retrieve from session
+
+    # Retrieve INCOM values from session, default to None if not set
+    incom_1 = session.get('incom_1', None)
+    incom_2 = session.get('incom_2', None)
+    incom_3 = session.get('incom_3', None)
+    incom_4 = session.get('incom_4', None)
+    incom_5 = session.get('incom_5', None)
+    incom_6 = session.get('incom_6', None)
+    # Get current game and session numbers
+    game = session.get('game', 1)
+    session_num = session.get('session_num', 1)
+    participant_id = session['participant_id']
+
+    # Check if the data for this game already exists in the database
+    existing_entry = Participant.query.filter_by(
+        participant_id=participant_id,
+        session_num=session_num,
+        round_num=game
+    ).first()
+
+    if not existing_entry:
+        try:
+            # If not exists, save the data as before
+            save_participant_data(
+                prolific_pid=prolific_pid,
+                session_id=session_id,
+                participant_id=participant_id,
+                session_num=session_num,
+                round_num=game,
+                contribution=session.get('current_contribution', 0),
+                bot_contribution=session.get('bot_contribution', 0),
+                participant_balance=session.get('participant_balance', 10),
+                bot_balance=session.get('bot_contribution', 0),
+                net_gain=session.get('net_gain', 0),
+                group=session.get('group'),
+                start_timestamp=session.get('start_timestamp'),
+                end_timestamp=None,
+                incom_1=incom_1,  # Pass incom values
+                incom_2=incom_2,
+                incom_3=incom_3,
+                incom_4=incom_4,
+                incom_5=incom_5,
+                incom_6=incom_6
+            )
+        except Exception as e:
+            print(f"Unexpected error: {e}")
+            return redirect(url_for('game'))  # Safely redirect to avoid errors
+
+    # Remove any redundant logic here
+    resp = make_response(render_template(
+        'outcome.html',
+        total_balance=session.get('participant_balance', 10),
+        human_contribution=session.get('current_contribution', 0),
+        bot_contribution=session.get('bot_contribution', 0),
+        game=session['game'],
+        session_num=session['session_num']
+    ))
+    
+    # Set cookies for last visited page, game number, and session number
+    resp.set_cookie('last_page', 'outcome', max_age=3600)
+    resp.set_cookie('game', str(session.get('game', 1)), max_age=3600)  # Store game number
+    resp.set_cookie('session_num', str(session.get('session_num', 1)), max_age=3600)  # Store session number
+    
+    return resp
+
+@app.route('/continue_after_outcome')
+def continue_after_outcome():
+    session_num = session.get('session_num', 1)
+    game = session.get('game', 1)
+
+    # Check if we are at the end of Session 1
+    if session_num == 1 and game == total_games:
+        # Move to Session 2
+        session['session_num'] = 2
+        session['game'] = 1  # Reset game to 1 for the new session
+
+        # Determine the next route (message or average_message) based on the group
+        next_route = 'message' if session['group'] == 'control' else 'average_message'
+        return redirect(url_for(next_route))
+
+    # Check if we are at the end of Session 2
+    elif session_num == 2 and game == total_games:
+        # End of Session 2, redirect to the results
+        return redirect(url_for('result'))
+
+    # For games 1 to 9, or games in Session 2 before the last game
+    else:
+        session['game'] += 1  # Increment the game count
+        return redirect(url_for('game'))  # Continue to the next game
+
+@app.route('/result')
+def result():
+    participant_id = session['participant_id']
+    session_num = session.get('session_num', 1)
+    
+    # Set the end timestamp at the time of result loading
+    end_timestamp = datetime.datetime.now(datetime.UTC)
+
+    # Update the end_timestamp in the database for each game of this participant
+    games_to_update = Participant.query.filter_by(
+        participant_id=participant_id,
+        session_num=session_num
+    ).all()
+
+    for game in games_to_update:
+        game.end_timestamp = end_timestamp
+
+    db.session.commit()  # Commit all changes
+
+    # Retrieve all games across both sessions (1 and 2)
+    all_games = Participant.query.filter_by(participant_id=participant_id).all()
+
+    # Calculate the total earnings in tokens across all games
+    total_tokens_earned = sum(game.participant_balance for game in all_games)
+
+    # Calculate the average earnings in tokens per game
+    average_tokens_earned_per_game = total_tokens_earned / len(all_games) if all_games else 0
+
+    # Convert the average earnings to USD (1 USD for 15 tokens, plus a base value of 1.58 USD)
+    bonus = (average_tokens_earned_per_game / 15)
+    earnings_in_usd = 1.58 + bonus
+
+    # Round earnings to 2 decimal places for display
+    earnings_in_usd = round(earnings_in_usd, 2)
+
+    # Update the bonus field in the Participant records
+    for game in games_to_update:
+        game.bonus = bonus
+
+    db.session.commit()  # Commit the bonus updates to the database
+
+    # Calculate averages for AI and human player contributions for each session
+    session_1_games = Participant.query.filter_by(participant_id=participant_id, session_num=1).all()
+    session_2_games = Participant.query.filter_by(participant_id=participant_id, session_num=2).all()
+
+    # Calculate the average contributions for session 1 and session 2
+    session_1_human_avg_contribution = round(sum(game.contribution for game in session_1_games) / len(session_1_games), 1) if session_1_games else 0
+    session_2_human_avg_contribution = round(sum(game.contribution for game in session_2_games) / len(session_2_games), 1) if session_2_games else 0
+    session_1_ai_avg_contribution = round(sum(game.bot_contribution for game in session_1_games) / len(session_1_games), 1) if session_1_games else 0
+    session_2_ai_avg_contribution = round(sum(game.bot_contribution for game in session_2_games) / len(session_2_games), 1) if session_2_games else 0
+
+    # Render the results page with game history and earnings
+    resp = make_response(render_template(
+        'result.html',
+        game_history=session.get('game_history', []),
+        session_1_human_avg_contribution=session_1_human_avg_contribution,
+        session_2_human_avg_contribution=session_2_human_avg_contribution,
+        session_1_ai_avg_contribution=session_1_ai_avg_contribution,
+        session_2_ai_avg_contribution=session_2_ai_avg_contribution,
+        earnings_in_usd=earnings_in_usd
+    ))
+
+    # Set cookies for the last visited page, game number, and session number
+    resp.set_cookie('last_page', 'result', max_age=3600)
+    resp.set_cookie('game', str(session.get('game', 1)), max_age=3600)  # Store game number
+    resp.set_cookie('session_num', str(session.get('session_num', 1)), max_age=3600)  # Store session number
+    
+    return resp
 
 @app.route('/message')
 def message():
-    session_num = session['session_num']
-    next_session_num = session_num + 1
-    message = f"You can now move on to session {next_session_num}."
-    return render_template('message.html', message=message)
+    # Retrieve the current session number
+    session_num = session.get('session_num', 1)
+
+    # Display the transition message when moving from Session 1 to Session 2
+    message = f"Session 1 is complete. You will now proceed to Session 2."
+
+    # Set cookies for the current state
+    resp = make_response(render_template('message.html', message=message))
+    resp.set_cookie('last_page', 'message', max_age=3600)
+    resp.set_cookie('game', str(session.get('game', 1)), max_age=3600)  # Store game number
+    resp.set_cookie('session_num', str(session_num), max_age=3600)  # Store session number
+
+    return resp
 
 @app.route('/average_message')
 def average_message():
-    session_num = session['session_num']
-    next_session_num = session_num + 1
-    contributions = session['contributions']
+    session_num = session.get('session_num', 1)
     participant_id = session['participant_id']  # Retrieve participant ID from session
 
     # Calculate human averages and divergence
-    human_avg_contribution = round(calculate_human_player_average(), 1)
-    historic_human_avg_contribution = round(calculate_historic_human_average(participant_id), 1)
+    human_avg_contribution = round(calculate_human_player_average(participant_id), 1)
+    historic_human_avg_contribution = 8.1
     human_divergence = round(human_avg_contribution - historic_human_avg_contribution, 1)
 
     # Calculate AI contributions for the current session
-    ai_avg_contribution = round(calculate_ai_player_average(session_num), 1)
-    historic_ai_avg_contribution = round(calculate_historic_ai_average(participant_id), 1)
+    ai_avg_contribution = round(calculate_ai_player_average(participant_id), 1)
+    historic_ai_avg_contribution = 8.1
     ai_divergence = round(ai_avg_contribution - historic_ai_avg_contribution, 1)
 
     # Log the calculated averages and divergences
@@ -471,95 +504,91 @@ def average_message():
     print(f"Human Divergence: {human_divergence}")
     print(f"AI Divergence: {ai_divergence}")
 
-    # Prepare the additional message
-    additional_message = "Another player has also received information regarding their deviation from the average contribution."
-
     # Render the template with the calculated data
-    return render_template(
+    resp = make_response(render_template(
         'average_message.html',
-        additional_message=additional_message,
-        next_session_num=next_session_num,
+        next_session_num=session_num,  # No need to increment again
         human_avg_contribution=human_avg_contribution,
         historic_human_avg_contribution=historic_human_avg_contribution,
-        divergence=human_divergence,  # Using human_divergence as divergence
+        divergence=human_divergence,
         ai_avg_contribution=ai_avg_contribution,
         historic_ai_avg_contribution=historic_ai_avg_contribution,
-        ai_divergence=ai_divergence  # Adding AI divergence for completeness
-    )
+        ai_divergence=ai_divergence
+    ))
 
-@app.route('/continue_game')
-def continue_game():
-    # Increment session number
-    session['session_num'] += 1
-    # Reset game history for the next session
-    session['game_history'] = []  
-    # Initialize data for the next session
-    session['round'] = 1
-    session['contributions'] = []
-    session['bot_contributions'] = []
-    session['participant_balances'] = [initial_tokens]
-    session['bot_balances'] = [initial_tokens]
-    session['participant_balance'] = initial_tokens
-    session['bot_balance'] = initial_tokens
-    session['intervention'] = False
-    return redirect(url_for('game'))
+    # Set cookies for last visited page, game number, and session number
+    resp.set_cookie('last_page', 'average_message', max_age=3600)
+    resp.set_cookie('game', str(session.get('game', 1)), max_age=3600)  # Store game number
+    resp.set_cookie('session_num', str(session_num), max_age=3600)  # Store session number
 
-@app.route('/result')
-def result():
-    # Ensure participant_balance and bot_balance are initialized
-    participant_balance = session.get('participant_balance', initial_tokens)
-    bot_balance = session.get('bot_balance', initial_tokens)
-    session_num = session.get('session_num', 1)
+    return resp
 
-    # Ensure all rounds in the current session are completed
-    if session.get('round', 1) <= total_rounds:
-        return redirect(url_for('game'))
+@app.route('/incom', methods=['GET', 'POST'])
+def incom():
+    if request.method == 'POST':
+        # Retrieve form data
+        incom_1 = request.form.get('incom_1')
+        incom_2 = request.form.get('incom_2')
+        incom_3 = request.form.get('incom_3')
+        incom_4 = request.form.get('incom_4')
+        incom_5 = request.form.get('incom_5')
+        incom_6 = request.form.get('incom_6')
 
-    # Ensure all sessions are completed before showing results
-    if session_num < total_sessions:
-        return redirect(url_for('continue_game'))
+        # Debugging: log incom values to check if they are being retrieved correctly
+        print(f"INCOM values: incom_1={incom_1}, incom_2={incom_2}, incom_3={incom_3}, incom_4={incom_4}, incom_5={incom_5}, incom_6={incom_6}")
 
-    # Query the database for session end balances
-    session_1_participant_balance = db.session.query(Participant.participant_balance).filter_by(
-        participant_id=session['participant_id'], session_num=1
-    ).order_by(Participant.round_num.desc()).first()
+        # Ensure all questions are answered
+        if not all([incom_1, incom_2, incom_3, incom_4, incom_5, incom_6]):
+            flash("Please answer all questions before proceeding.")
+            return render_template('incom.html')
 
-    session_1_bot_balance = db.session.query(Participant.bot_balance).filter_by(
-        participant_id=session['participant_id'], session_num=1
-    ).order_by(Participant.round_num.desc()).first()
+        # Reverse-code incom_3 (e.g., 5 becomes 1, 4 becomes 2, etc.)
+        incom_3_reversed = 6 - int(incom_3)
 
-    session_2_participant_balance = db.session.query(Participant.participant_balance).filter_by(
-        participant_id=session['participant_id'], session_num=2
-    ).order_by(Participant.round_num.desc()).first()
+        # Save the data to the session for now
+        session['incom_1'] = incom_1
+        session['incom_2'] = incom_2
+        session['incom_3'] = incom_3_reversed  # Save reversed
+        session['incom_4'] = incom_4
+        session['incom_5'] = incom_5
+        session['incom_6'] = incom_6
 
-    session_2_bot_balance = db.session.query(Participant.bot_balance).filter_by(
-        participant_id=session['participant_id'], session_num=2
-    ).order_by(Participant.round_num.desc()).first()
+        # Debugging: log session data
+        print(f"Session INCOM values: {session.get('incom_1')}, {session.get('incom_2')}, {session.get('incom_3')}, {session.get('incom_4')}, {session.get('incom_5')}, {session.get('incom_6')}")
 
-    # Safely extract the balances or set them to a default value if None
-    session_1_participant_balance = session_1_participant_balance[0] if session_1_participant_balance else initial_tokens
-    session_1_bot_balance = session_1_bot_balance[0] if session_1_bot_balance else initial_tokens
-    session_2_participant_balance = session_2_participant_balance[0] if session_2_participant_balance else initial_tokens
-    session_2_bot_balance = session_2_bot_balance[0] if session_2_bot_balance else initial_tokens
+        # Redirect to the next page
+        return redirect(url_for('questions'))  # Redirect to the next step
+    return render_template('incom.html')
 
-    # Save end_timestamp in the final session
-    if session_num == total_sessions:
-        end_timestamp = session.get('end_timestamp')
-        final_participant_entry = Participant.query.filter_by(
-            participant_id=session['participant_id'], session_num=session_num
-        ).order_by(Participant.round_num.desc()).first()
-        if final_participant_entry:
-            final_participant_entry.end_timestamp = end_timestamp
-            db.session.commit()
+@app.route('/questions', methods=['GET', 'POST'])
+def questions():
+    if request.method == 'POST':
+        # Check answers from form submission
+        answer1 = request.form.get('answer1')
+        answer2 = request.form.get('answer2')
+        answer3 = request.form.get('answer3')
+        answer4 = request.form.get('answer4')
 
-    return render_template(
-        'result.html',
-        session_1_participant_balance=session_1_participant_balance,
-        session_1_bot_balance=session_1_bot_balance,
-        session_2_participant_balance=session_2_participant_balance,
-        session_2_bot_balance=session_2_bot_balance,
-        next_session=None
-    )
+        # Correct answers
+        correct_answers = {
+            'answer1': ['12.5', '12,5', '12.50', '12,50'],
+            'answer2': ['7.5', '7,5', '7.50', '7,50'],
+            'answer3': ['10.25', '10,25'],
+            'answer4': ['10']
+        }
+
+        # Verify answers
+        if (answer1 in correct_answers['answer1'] and 
+            answer2 in correct_answers['answer2'] and
+            answer3 in correct_answers['answer3'] and
+            answer4 in correct_answers['answer4']):
+            return redirect(url_for('start'))  # Redirect to the first session if answers are correct
+
+    resp = make_response(render_template('questions.html'))
+
+    # Set cookies for last visited page, game number, and session number
+    resp.set_cookie('last_page', 'questions', max_age=3600)
+    return resp
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=os.getenv("DEBUG", "False") == "True")

@@ -2,41 +2,26 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Round Outcome</title>
+    <title>Game Outcome</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
-    <meta http-equiv="refresh" content="4;url={{ url_for('game') }}">
-    <script>
-        (function() {
-            window.history.pushState(null, null, window.location.href);
-            window.onpopstate = function() {
-                window.history.go(1);
-            };
-        })();
-    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <style>
-        body { text-align: center; margin: 50px auto; font-size: 24px; padding: 20px; max-width: 100%; font-family: 'Roboto', sans-serif;}
-        .positive { color: green; font-size: 28px; font-family: 'Roboto', sans-serif;}
-        .negative { color: red; font-size: 28px; font-family: 'Roboto', sans-serif;}
-        .neutral { color: black; font-size: 28px; font-family: 'Roboto', sans-serif;}
-
-        /* Mobile and tablet responsiveness */
-        @media only screen and (max-width: 768px) {
-            body { font-size: 35px; margin-top: 40px; padding: 30px; }
-            .positive, .negative, .neutral { font-size: 35px; }
-        }
+        body { text-align: center; margin: 50px auto; font-size: 24px; padding: 20px; max-width: 100%; font-family: 'Roboto', sans-serif; }
+        .scoreboard { margin: 30px 0; }
+        .highlight { font-weight: bold; color: #007BFF; }
+        button { padding: 15px 30px; font-size: 24px; border-radius: 8px; cursor: pointer; background-color: #007BFF; color: white; border: none; }
     </style>
 </head>
 <body>
-    <h1>Round Outcome</h1>
-    <p>Round Balance: 
-        {% if net_gain > 0 %}
-            <span class="positive">{{ net_gain }}</span>
-        {% elif net_gain < 0 %}
-            <span class="negative">{{ net_gain }}</span>
-        {% else %}
-            <span class="neutral">0</span>
-        {% endif %}
-    </p>
-    <p>Total Balance: <span class="highlight">{{ total_balance }}</span></p>
+    <h1>Game {{ game }} – Session {{ session_num }}</h1>
+    <div class="scoreboard">
+        <p>Your Contribution: <span class="highlight">{{ human_contribution }}</span></p>
+        <p>AI Contribution: <span class="highlight">{{ bot_contribution }}</span></p>
+        <p>Your Earnings for This Game: <span class="highlight">{{ total_balance }}</span></p>
+    </div>
+    <form method="get" action="{{ url_for('continue_after_outcome') }}">
+        <button type="submit">Next</button>
+    </form>
 </body>
 </html>

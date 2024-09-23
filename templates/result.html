@@ -26,44 +26,54 @@
             font-weight: bold;
             color: #007BFF;
         }
-
-        /* Mobile and tablet responsiveness */
-        @media only screen and (max-width: 768px) {
-            body { font-size: 35px; margin-top: 40px; padding: 30px; }
-            table { width: 90%; }
-            th, td { font-size: 28px; padding: 20px; }
-        }
     </style>
+    <script>
+        // Countdown and redirect after 15 seconds
+        let timeLeft = 15;
+        const countdown = setInterval(function() {
+            if (timeLeft <= 0) {
+                clearInterval(countdown);
+                window.location.href = "https://app.prolific.com/submissions/complete?cc=CVGCDEN7";  // Prolific redirect URL
+            } else {
+                document.getElementById("countdown").innerHTML = timeLeft + " seconds";
+            }
+            timeLeft -= 1;
+        }, 1000);
+    </script>
 </head>
 <body>
-    <h1>Public Good Game Results</h1>
+    <h1>Task Results</h1>
+
     <table>
+        <caption>Average Contribution Rates</caption>
         <thead>
             <tr>
                 <th>Session</th>
-                <th>Player End Balance</th>
-                <th>Bot End Balance</th>
+                <th>Your Average Contribution</th>
+                <th>AI Average Contribution</th>
             </tr>
         </thead>
         <tbody>
             <tr>
                 <td>Session 1</td>
-                <td>{{ session_1_participant_balance }}</td>
-                <td>{{ session_1_bot_balance }}</td>
+                <td>{{ session_1_human_avg_contribution }}</td>
+                <td>{{ session_1_ai_avg_contribution }}</td>
             </tr>
             <tr>
                 <td>Session 2</td>
-                <td>{{ session_2_participant_balance }}</td>
-                <td>{{ session_2_bot_balance }}</td>
+                <td>{{ session_2_human_avg_contribution }}</td>
+                <td>{{ session_2_ai_avg_contribution }}</td>
             </tr>
         </tbody>
     </table>
-    {% if next_session %}
-        <form action="{{ url_for('continue_game') }}" method="get">
-            <button type="submit">Start Session {{ next_session }}</button>
-        </form>
-    {% else %}
-        <p>The game is finished. Thank you for participating!</p>
-    {% endif %}
+
+    <p style="text-align: center; margin-top: 20px;">
+        Your total earnings for the game are: {{ earnings_in_usd }} USD.<br>
+        Thank you for your participation!
+    </p>
+
+    <p style="text-align: center; margin-top: 20px;">
+        Please wait <span id="countdown">15 seconds</span> for being redirected to Prolific.
+    </p>
 </body>
 </html>
