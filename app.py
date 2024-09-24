@@ -428,7 +428,7 @@ def result():
 
     # Convert the average earnings to USD (1 USD for 15 tokens, plus a base value of 1.58 USD)
     bonus = (average_tokens_earned_per_game / 15)
-    earnings_in_usd = 1.58 + bonus
+    earnings_in_usd = 1.61 + bonus
 
     # Round earnings to 2 decimal places for display
     earnings_in_usd = round(earnings_in_usd, 2)
